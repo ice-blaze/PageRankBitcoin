@@ -16,7 +16,7 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 	byte[] address = new byte[SIZE];
 	
 	public BitcoinAddress(String str){// wrong
-		setString(str);
+		set(str);
 	}
 	
 	public BitcoinAddress(byte[] tab){
@@ -30,7 +30,7 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 		address = a.address.clone();
 	}
 	
-	public void setString(String string){
+	public void set(String string){
 		address = string.getBytes();
 		if(address.length!=SIZE){
 			System.out.println("NOT 20 LENGTH !!!");

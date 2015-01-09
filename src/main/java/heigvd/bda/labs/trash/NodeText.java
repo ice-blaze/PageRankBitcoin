@@ -1,4 +1,4 @@
-package heigvd.bda.labs.utils;
+package heigvd.bda.labs.trash;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -41,7 +41,7 @@ public class NodeText implements Writable {
 		return this.dang==true;
 	}
 	public boolean isUnDang(){
-		return !isDang();
+		return this.dang==false;
 	}
 
 	public List<String> getAdjacency(String adj) {
@@ -90,6 +90,7 @@ public class NodeText implements Writable {
 
 	public void readFields(DataInput in) throws IOException {
 		id = in.readInt();
+		dang = in.readBoolean();
 		mass = in.readDouble();
 		oldMass = in.readDouble();
 		int len = in.readInt();
@@ -101,6 +102,7 @@ public class NodeText implements Writable {
 
 	public void write(DataOutput out) throws IOException {
 		out.writeInt(id);
+		out.writeBoolean(dang);
 		out.writeDouble(mass);
 		out.writeDouble(oldMass);
 		out.writeInt(adjacency.size());

@@ -14,6 +14,7 @@ public class NodePR implements Writable {
 	private int id = -1;
 	private double mass = 0;
 	private double oldMass = 0;
+	private boolean dang = true;
 
 	public NodePR(int id, double mass, String adjacency) {
 		this.id = id;
@@ -28,6 +29,19 @@ public class NodePR implements Writable {
 
 	public NodePR() {
 
+	}
+	
+	public void setUnDang(){
+		this.dang = false;
+	}
+	public void setDang(){
+		this.dang = true;
+	}
+	public boolean isDang(){
+		return this.dang==true;
+	}
+	public boolean isUnDang(){
+		return this.dang==false;
 	}
 
 	public List<Integer> getAdjacency(String adj) {
@@ -76,6 +90,7 @@ public class NodePR implements Writable {
 
 	public void readFields(DataInput in) throws IOException {
 		id = in.readInt();
+		dang = in.readBoolean();
 		mass = in.readDouble();
 		oldMass = in.readDouble();
 		int len = in.readInt();
@@ -87,6 +102,7 @@ public class NodePR implements Writable {
 
 	public void write(DataOutput out) throws IOException {
 		out.writeInt(id);
+		out.writeBoolean(dang);
 		out.writeDouble(mass);
 		out.writeDouble(oldMass);
 		out.writeInt(adjacency.size());

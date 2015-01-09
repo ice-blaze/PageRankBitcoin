@@ -1,4 +1,4 @@
-package heigvd.bda.labs.utils;
+package heigvd.bda.labs.trash;
 
 import java.io.UnsupportedEncodingException;
 
@@ -17,6 +17,10 @@ public class BitcoinAddress2 extends BytesWritable {
 	
 	public void setString(String string){
 		set(string.getBytes()); 
+	}
+	
+	public void set(String str){
+		setString(str);
 	}
 	
 	public void set(byte[] tab){
