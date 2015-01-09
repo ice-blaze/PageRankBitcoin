@@ -1,11 +1,9 @@
 package heigvd.bda.labs.graph;
 
-import heigvd.bda.labs.trash.NodeText;
 import heigvd.bda.labs.utils.BitcoinAddress;
 import heigvd.bda.labs.utils.DoubleWritable;
 import heigvd.bda.labs.utils.NodeBitcoin;
 import heigvd.bda.labs.utils.PRInputFormat;
-import heigvd.bda.labs.utils.PROutputFormat;
 
 import java.io.IOException;
 import java.util.List;
@@ -14,8 +12,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputFormat;
@@ -30,7 +26,6 @@ import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-import org.omg.CosNaming.NamingContextExtPackage.AddressHelper;
 
 public class BitcoinWithAddress extends Configured implements Tool {
 
@@ -69,36 +64,39 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		outputPath = new Path(outputString + "0");
 	}
 
-	static class IIMapperREGROUP extends Mapper<LongWritable, Text, BitcoinAddress, Text> {
+	static class IIMapperREGROUP extends Mapper<BitcoinAddress, BitcoinAddress, BitcoinAddress, BitcoinAddress> {
 		private static final BitcoinAddress SENDER = new BitcoinAddress();
 		private static final Text RECIEVER = new Text();
 
 		@Override
-		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+		protected void map(BitcoinAddress key, BitcoinAddress value, Context context) throws IOException, InterruptedException {
 			
+			System.out.println(key.toString());
+			context.write(key, value);
 			// on split le tout, et on envoie expéditeur/receveur
-			String[] s = value.toString().split("\t".intern());
-
-			SENDER.set(s[0]);
-			
-			if (s.length == 1) {
-				RECIEVER.set("".intern());
-				context.write(SENDER, RECIEVER);
-			}
-
-			for (int i = 1; i < s.length; i++) {
-				RECIEVER.set(s[i]);
-				context.write(SENDER, RECIEVER);
-			}
+//			String[] s = value.toString().split("\t".intern());
+//
+//			SENDER.set(s[0]);
+//			
+//			if (s.length == 1) {
+//				RECIEVER.set("".intern());
+//				context.write(SENDER, RECIEVER);
+//			}
+//
+//			for (int i = 1; i < s.length; i++) {
+//				RECIEVER.set(s[i]);
+//				context.write(SENDER, RECIEVER);
+//			}
 		}
 	}
 
-	static class IIReducerREGROUP extends Reducer<BitcoinAddress, Text, BitcoinAddress, NodeBitcoin> {
+	static class IIReducerREGROUP extends Reducer<BitcoinAddress, BitcoinAddress, BitcoinAddress, NodeBitcoin> {
 		private static final NodeBitcoin NODE = new NodeBitcoin();
 
 		@Override
-		protected void reduce(BitcoinAddress key, Iterable<Text> values, Context context) throws IOException,
+		protected void reduce(BitcoinAddress key, Iterable<BitcoinAddress> values, Context context) throws IOException,
 				InterruptedException {
+			System.out.println("hi2");
 			
 			// merge tous les receveur avec en clé l'expéditeur
 			context.getCounter(UpdateCounter.MAXLINE).increment(1);
@@ -108,8 +106,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			NODE.clear();
 			
 
-			for (Text v : values) {
-				NODE.addAdja(v.toString());
+			for (BitcoinAddress v : values) {
+				NODE.addAdja(v);
 			}
 			
 			context.write(key, NODE);
@@ -120,8 +118,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 	static class IIMapperPARSE extends Mapper<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
 		@Override
 		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
-			System.out.println(key.toString()+" "+value.toString());
 			context.write(key, value);
+			System.out.println("hi3");
 		}
 	}
 
@@ -147,7 +145,6 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			for (NodeBitcoin v : values) {
 				NODE.clearSetAdjacency(v.getAdjacency());
 				context.write(sender, NODE);
-				System.out.println(sender.toString()+" "+NODE.toString()+" parser reducer");
 			}
 		}
 	}
@@ -231,7 +228,6 @@ public class BitcoinWithAddress extends Configured implements Tool {
 
 			NODE.setMass(sum);
 			context.write(ID, NODE);
-			System.out.println(key.toString()+" "+NODE.toString()+" reducer");
 		}
 
 		@Override
@@ -316,8 +312,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		
 		
 		out = new Path(outputString + "regroup");
-		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, BitcoinAddress.class, Text.class, BitcoinAddress.class,
-				NodeBitcoin.class, inputPath, out, numReducers, BitcoinWithAddress.class,TextInputFormat.class, SequenceFileOutputFormat.class, true);
+		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, BitcoinAddress.class, BitcoinAddress.class, BitcoinAddress.class,
+				NodeBitcoin.class, inputPath, out, numReducers, BitcoinWithAddress.class,PRInputFormat.class, SequenceFileOutputFormat.class, true);
 		
 		long nbNodes = jobDATA.getCounters().findCounter(UpdateCounter.MAXLINE).getValue();
 		conf.setLong(MAX_LINE, nbNodes);

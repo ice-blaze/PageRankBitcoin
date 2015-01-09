@@ -4,6 +4,8 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import org.apache.hadoop.io.BinaryComparable;
 import org.apache.hadoop.io.BytesWritable;
@@ -39,12 +41,33 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 	
 	
 	public String toString(){//TODO should be 256 to 58
-		try {
-			return new String(address, "UTF-8");
-		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
-			return "Address encoding error";
+		byte[] tab = new byte[25];
+		tab[0] = 0x00;
+		for(int i=1;i<SIZE+1;i++){
+			tab[i]=address[i-1];
 		}
+		
+		MessageDigest md = null;
+		try {
+			md = MessageDigest.getInstance("SHA-256");
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+
+	    byte[] checksum = md.digest(tab);
+	    tab[21] = checksum[0];
+	    tab[22] = checksum[1];
+	    tab[23] = checksum[2];
+	    tab[24] = checksum[3];
+	    
+	    
+	    return Base58.encode(tab);
+//		try {
+//			return new String(address, "UTF-8");
+//		} catch (UnsupportedEncodingException e) {
+//			e.printStackTrace();
+//			return "Address encoding error";
+//		}
 	}
 
 	public void write(DataOutput out) throws IOException {
