@@ -11,7 +11,9 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputFormat;
@@ -289,16 +291,19 @@ public class BitcoinWithAddress extends Configured implements Tool {
 	}
 
 	public int run(String[] args) throws Exception {
-		FileSystem.get(new Configuration()).delete(new Path(outputString), true);
+		Configuration conf = this.getConf();
+		conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
+		conf.set("fs.file.impl", LocalFileSystem.class.getName());
+		FileSystem.get(conf).delete(new Path(outputString), true);
+		
 		Path in;
 		Path out;
 
 		long counter = 0;
 		int depth = 1;
-		Configuration conf = this.getConf();
+		
 		Job jobDATA = new Job(conf, "Graph");
 		FileSystem.get(conf).delete(outputPath, true);
-		
 		
 		out = new Path(outputString + "regroup");
 		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, BitcoinAddress.class, BitcoinAddress.class, BitcoinAddress.class,
@@ -332,7 +337,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 					NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			// avoid too much folders. comment for debuging is usefull
-			FileSystem.get(new Configuration()).delete(in, true);
+//			FileSystem.get(new Configuration()).delete(in, true);
 
 			depth++;
 			counter = job2.getCounters().findCounter(UpdateCounter.UPDATED).getValue();

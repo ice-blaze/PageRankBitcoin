@@ -7,24 +7,33 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
+import org.apache.hadoop.fs.ContentSummary;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 
 public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddress> {
 
 	static class PRRecordReader extends RecordReader<BitcoinAddress, BitcoinAddress> {
 
-		ArrayList<BufferedInputStream> readers = new ArrayList<BufferedInputStream>();
+		ArrayList<FSDataInputStream> readers = new ArrayList<FSDataInputStream>();
 		BitcoinAddress currentKey;
 		BitcoinAddress currentValue;
 
@@ -35,21 +44,30 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 
 		@Override
 		public void initialize(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException {
-			try {
-				File directory = new File(new URI(PRInputFormat.getInputPaths(context)[0].toString()));
-				for (File file : directory.listFiles(new FilenameFilter() {
-					public boolean accept(File dir, String name) {
-						return name.toLowerCase().endsWith(".bin");
-					}
-				})) {
-					this.fileSize += file.length();
-
-					BufferedInputStream br = new BufferedInputStream(new FileInputStream(file), 4096);
-					this.readers.add(br);
-				}
-			} catch (URISyntaxException e) {
-				e.printStackTrace();
+			FileSystem fs = FileSystem.get(context.getConfiguration());
+			FileStatus[] status = fs.listStatus(new Path(PRInputFormat.getInputPaths(context)[0].toString()));
+			for(FileStatus f : status){
+				FSDataInputStream dis = fs.open(f.getPath());
+				this.fileSize += f.getLen();
+				this.readers.add(dis);
 			}
+//			try {
+//				
+//				File directory = new File(new URI(PRInputFormat.getInputPaths(context)[0].toString()));
+//				for (File file : directory.listFiles(new FilenameFilter() {
+//					public boolean accept(File dir, String name) {
+//						return name.toLowerCase().endsWith(".bin");
+//					}
+//				})) {
+//					this.fileSize += file.length();
+//
+//					BufferedInputStream br = new BufferedInputStream(new FileInputStream(file), 4096);
+//					this.readers.add(br);
+//				}
+//			} catch (URISyntaxException e) {
+//				e.printStackTrace();
+//			}
+			
 		}
 
 		@Override
@@ -76,16 +94,6 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 			}
 		}
 
-		private void splitTabInTwo(byte[] completTab, byte[] tab1, byte[] tab2) {
-			int half = (int) Math.floor(completTab.length / 2);
-			for (int i = 0; i < half; i++) {
-				tab1[i] = completTab[i];
-			}
-			for (int i = half; i < completTab.length; i++) {
-				tab2[i - half] = completTab[i];
-			}
-		}
-
 		@Override
 		public BitcoinAddress getCurrentKey() throws IOException, InterruptedException {
 			return this.currentKey;
@@ -105,7 +113,7 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 
 		@Override
 		public void close() throws IOException {
-			for (BufferedInputStream reader : this.readers)
+			for (FSDataInputStream reader : this.readers)
 				reader.close();
 			this.currentKey = null;
 			this.currentValue = null;
