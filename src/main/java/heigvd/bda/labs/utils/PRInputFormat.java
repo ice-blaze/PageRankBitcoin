@@ -57,38 +57,32 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 			for (;;) {
 				if (this.readers.isEmpty())
 					return false;
-				byte[] tab = new byte[BitcoinAddress.SIZE * 2];
-				int currentLine = this.readers.get(0).read(tab);
-
-				if (currentLine == 0) { // EOF.
+				byte[] key = new byte[BitcoinAddress.SIZE];
+				byte[] value = new byte[BitcoinAddress.SIZE];
+				boolean eof = this.readers.get(0).read(key) < BitcoinAddress.SIZE
+						|| this.readers.get(0).read(value) < BitcoinAddress.SIZE;
+				if (eof) {
 					this.readers.get(0).close();
 					this.currentKey = null;
 					this.currentValue = null;
 					this.readers.remove(0);
 				} else {
-					this.byteRead += currentLine;
-					//
-					// String[] str = currentLine.split("\t");
+					this.byteRead += 2 * BitcoinAddress.SIZE;
 
-					byte[] tab1 = new byte[BitcoinAddress.SIZE];
-					byte[] tab2 = new byte[BitcoinAddress.SIZE];
-					splitTabInTwo(tab, tab1, tab2);
-
-					this.currentKey = new BitcoinAddress(tab1);
-					this.currentValue = new BitcoinAddress(tab2);
-					
+					this.currentKey = new BitcoinAddress(key);
+					this.currentValue = new BitcoinAddress(value);
 					return true;
 				}
 			}
 		}
 
 		private void splitTabInTwo(byte[] completTab, byte[] tab1, byte[] tab2) {
-			int half = (int) Math.floor(completTab.length/2);
-			for (int i = 0; i < half; i++){
+			int half = (int) Math.floor(completTab.length / 2);
+			for (int i = 0; i < half; i++) {
 				tab1[i] = completTab[i];
 			}
-			for (int i = half ; i < completTab.length; i++) {
-				tab2[i-half] = completTab[i];
+			for (int i = half; i < completTab.length; i++) {
+				tab2[i - half] = completTab[i];
 			}
 		}
 

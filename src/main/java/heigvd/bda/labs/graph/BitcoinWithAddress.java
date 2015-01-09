@@ -65,28 +65,15 @@ public class BitcoinWithAddress extends Configured implements Tool {
 	}
 
 	static class IIMapperREGROUP extends Mapper<BitcoinAddress, BitcoinAddress, BitcoinAddress, BitcoinAddress> {
-		private static final BitcoinAddress SENDER = new BitcoinAddress();
-		private static final Text RECIEVER = new Text();
-
 		@Override
 		protected void map(BitcoinAddress key, BitcoinAddress value, Context context) throws IOException, InterruptedException {
 			
-			System.out.println(key.toString());
+			// dans le cas où on a pas les en clé tout les noeuds il faut les envoyé à double avec un flag
+			// 1->2 3->1      nouveau format (géré avec le empty)
+			// 1->2 3->1 2->  ancien  format
 			context.write(key, value);
-			// on split le tout, et on envoie expéditeur/receveur
-//			String[] s = value.toString().split("\t".intern());
-//
-//			SENDER.set(s[0]);
-//			
-//			if (s.length == 1) {
-//				RECIEVER.set("".intern());
-//				context.write(SENDER, RECIEVER);
-//			}
-//
-//			for (int i = 1; i < s.length; i++) {
-//				RECIEVER.set(s[i]);
-//				context.write(SENDER, RECIEVER);
-//			}
+			key.setEmpty(true);
+			context.write(value, key);
 		}
 	}
 
@@ -96,7 +83,6 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		@Override
 		protected void reduce(BitcoinAddress key, Iterable<BitcoinAddress> values, Context context) throws IOException,
 				InterruptedException {
-			System.out.println("hi2");
 			
 			// merge tous les receveur avec en clé l'expéditeur
 			context.getCounter(UpdateCounter.MAXLINE).increment(1);
@@ -107,7 +93,9 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			
 
 			for (BitcoinAddress v : values) {
-				NODE.addAdja(v);
+				if(!v.isEmpty()){
+					NODE.addAdja(v);
+				}
 			}
 			
 			context.write(key, NODE);
@@ -119,7 +107,6 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		@Override
 		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 			context.write(key, value);
-			System.out.println("hi3");
 		}
 	}
 
@@ -163,6 +150,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		@Override
 		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 
+			System.out.println(key.toString()+" "+value.toString());
+			
 			NODE.clear();
 			NODE.setMass(0);
 			NODE.setUnDang();

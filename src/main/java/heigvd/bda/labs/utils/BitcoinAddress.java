@@ -16,6 +16,7 @@ import org.apache.hadoop.io.WritableComparator;
 public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 	public final static int SIZE = 20;
 	byte[] address = new byte[SIZE];
+	boolean empty = false;
 	
 	public BitcoinAddress(String str){// wrong
 		set(str);
@@ -30,6 +31,14 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 	
 	public void set(BitcoinAddress a){
 		address = a.address.clone();
+	}
+	
+	public void setEmpty(boolean b){
+		empty = b;
+	}
+	
+	public boolean isEmpty(){
+		return empty;
 	}
 	
 	public void set(String string){
@@ -71,12 +80,14 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 	}
 
 	public void write(DataOutput out) throws IOException {
+		out.writeBoolean(empty);
 		out.writeInt(getLength());
 		for(int i=0;i<getLength();i++)
 			out.writeByte(address[i]);
 	}
 
 	public void readFields(DataInput in) throws IOException {
+		empty = in.readBoolean();
 		int length = in.readInt();
 		for(int i=0;i<length;i++)
 			address[i] = in.readByte();
