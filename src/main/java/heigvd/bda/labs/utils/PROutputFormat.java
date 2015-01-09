@@ -10,9 +10,9 @@ import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-public class PROutputFormat extends FileOutputFormat<IntWritable, NodePR> {
+public class PROutputFormat extends FileOutputFormat<IntWritable, NodeBitcoin> {
 
-   static class PRRecordWriter extends RecordWriter<IntWritable, NodePR> {
+   static class PRRecordWriter extends RecordWriter<IntWritable, NodeBitcoin> {
 
       BufferedWriter writer;
       
@@ -22,7 +22,7 @@ public class PROutputFormat extends FileOutputFormat<IntWritable, NodePR> {
       }
 
       @Override
-      public void write(IntWritable key, NodePR value) throws IOException, InterruptedException {
+      public void write(IntWritable key, NodeBitcoin value) throws IOException, InterruptedException {
          this.writer.write(String.format("%s\t%s", key, value));
          this.writer.newLine();
       }
@@ -35,7 +35,7 @@ public class PROutputFormat extends FileOutputFormat<IntWritable, NodePR> {
    }
    
    @Override
-   public RecordWriter<IntWritable, NodePR> getRecordWriter(TaskAttemptContext job) throws IOException, InterruptedException {
+   public RecordWriter<IntWritable, NodeBitcoin> getRecordWriter(TaskAttemptContext job) throws IOException, InterruptedException {
       try {
          String outputFilename = FileOutputFormat.getUniqueFile(job, FileOutputFormat.getOutputName(job), ".txt");
          return new PRRecordWriter(String.format("%s/%s", FileOutputFormat.getOutputPath(job), outputFilename));

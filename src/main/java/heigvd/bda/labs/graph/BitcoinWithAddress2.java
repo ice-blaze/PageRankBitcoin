@@ -1,7 +1,7 @@
 package heigvd.bda.labs.graph;
 
 import heigvd.bda.labs.utils.DoubleWritable;
-import heigvd.bda.labs.utils.NodePR;
+import heigvd.bda.labs.utils.NodeText;
 import heigvd.bda.labs.utils.PRInputFormat;
 import heigvd.bda.labs.utils.PROutputFormat;
 
@@ -29,7 +29,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
-public class Bitcoin extends Configured implements Tool {
+public class BitcoinWithAddress2 extends Configured implements Tool {
 
 	public enum UpdateCounter {
 		UPDATED, DANGLING, MAXLINE
@@ -57,7 +57,7 @@ public class Bitcoin extends Configured implements Tool {
 		return text.split("\t");
 	}
 
-	public Bitcoin(String[] args) throws IOException {
+	public BitcoinWithAddress2(String[] args) throws IOException {
 		if (args.length != 3) {
 			System.out.println("Usage: Graph <num_reducers> <input_path> <output_path>");
 			System.exit(0);
@@ -69,11 +69,184 @@ public class Bitcoin extends Configured implements Tool {
 		outputPath = new Path(outputString + "0");
 	}
 
-	static class IIMapperLOSS extends Mapper<IntWritable, NodePR, IntWritable, NodePR> {
+	static class IIMapperREGROUP extends Mapper<LongWritable, Text, Text, Text> {
+		private static final Text SENDER = new Text();
+		private static final Text RECIEVER = new Text();
 
 		@Override
-		protected void map(IntWritable key, NodePR value, Context context) throws IOException, InterruptedException {
+		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+			
+			// on split le tout, et on envoie expéditeur/receveur
+			String[] s = value.toString().split("\t".intern());
 
+			SENDER.set(s[0]);
+			
+			if (s.length == 1) {
+				RECIEVER.set("".intern());
+				context.write(SENDER, RECIEVER);
+			}
+
+			for (int i = 1; i < s.length; i++) {
+				RECIEVER.set(s[i]);
+				context.write(SENDER, RECIEVER);
+			}
+		}
+	}
+
+	static class IIReducerREGROUP extends Reducer<Text, Text, Text, NodeText> {
+		private static final NodeText NODE = new NodeText();
+
+		@Override
+		protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException,
+				InterruptedException {
+			
+			// merge tous les receveur avec en clé l'expéditeur
+			context.getCounter(UpdateCounter.MAXLINE).increment(1);
+			
+			NODE.setMass(-1);
+			NODE.setOldMass(-1);
+			NODE.clear();
+			
+
+			for (Text v : values) {
+				NODE.addAdja(v.toString());
+			}
+			
+			context.write(key, NODE);
+		}
+	}
+	
+	static class IIMapperPARSE extends Mapper<Text, NodeText, Text, NodeText> {
+		@Override
+		protected void map(Text key, NodeText value, Context context) throws IOException, InterruptedException {
+			context.write(key, value);
+		}
+	}
+
+	static class IIReducerPARSE extends Reducer<Text, NodeText, Text, NodeText> {
+		private static final NodeText NODE = new NodeText();
+
+		@Override
+		protected void setup(Context context) throws IOException, InterruptedException {
+			super.setup(context);
+			//calcule la masse initiale
+			COUNT = 1.0 / (double) context.getConfiguration().getLong(MAX_LINE, -1);
+			ALPHA_DIV_N = ALPHA * COUNT;
+		}
+
+		@Override
+		protected void reduce(Text sender, Iterable<NodeText> values, Context context) throws IOException,
+				InterruptedException {
+			
+			//ajoute la masse initiale à tous les noeuds
+			NODE.setMass(COUNT);
+			NODE.setOldMass(0);
+			
+			for (NodeText v : values) {
+				NODE.clearSetAdjacency(v.getAdjacency());
+				context.write(sender, NODE);
+			}
+		}
+	}
+
+	static class IIMapper extends Mapper<Text, NodeText, Text, NodeText> {
+
+		private static final Text ID = new Text();
+		private static final NodeText NODE = new NodeText();
+
+		@Override
+		protected void setup(Context context) throws IOException, InterruptedException {
+			super.setup(context);
+			context.getCounter(UpdateCounter.DANGLING).setValue(0);
+		}
+
+		@Override
+		protected void map(Text key, NodeText value, Context context) throws IOException, InterruptedException {
+
+			NODE.clear();
+			NODE.setMass(0);
+			NODE.setUnDang();
+//			NODE.setID(TAG_UNDANG);
+
+			ID.set(key.toString());
+			double p = value.getMass();
+
+			NODE.setOldMass(p);
+
+			if (value.getAdjacency().size() > 0) {
+				NODE.clearSetAdjacency(value.getAdjacency());
+			} else {
+				NODE.setMass(p);
+//				NODE.setID(TAG_DANG);
+				NODE.setDang();
+			}
+			context.write(ID, NODE);
+			NODE.setOldMass(0);
+
+			p /= (double) NODE.getAdjacency().size();
+			NODE.setMass(p);
+			List<String> list = NODE.getAdjacencyCopy();
+			NODE.clear();
+			for (String i : list) {
+				ID.set(i);
+				context.write(ID, NODE);
+			}
+		}
+	}
+
+	static class IIReducer extends Reducer<Text, NodeText, Text, NodeText> {
+
+		private static final Text ID = new Text();
+		private static final NodeText NODE = new NodeText();
+		private static double loss = 0;
+
+		@Override
+		protected void setup(Context context) throws IOException, InterruptedException {
+			super.setup(context);
+			loss = 0;
+		}
+
+		@Override
+		protected void reduce(Text key, Iterable<NodeText> values, Context context) throws IOException,
+				InterruptedException {
+
+			NODE.clear();
+
+			double sum = 0;
+
+			for (NodeText d : values) {
+				if (d.getAdjacency().size() != 0) {
+					NODE.setOldMass(d.getOldMass());
+					NODE.clearSetAdjacency(d.getAdjacency());
+				} else if (d.isDang()) {
+					NODE.setOldMass(d.getOldMass());
+					loss += d.getMass();
+				} else {
+					sum += d.getMass();
+				}
+			}
+
+			ID.set(key.toString());
+
+			NODE.setMass(sum);
+			context.write(ID, NODE);
+			System.out.println(key.toString()+" "+NODE.toString()+" reducer");
+		}
+
+		@Override
+		protected void cleanup(Context context) throws IOException, InterruptedException {
+			super.cleanup(context);
+
+			context.getCounter(UpdateCounter.DANGLING).increment((long) (loss * MAX_DANG_DIGIT / (double) context.getConfiguration().getLong(MAX_LINE, -1)));
+		}
+	}
+	
+	static class IIMapperLOSS extends Mapper<Text, NodeText, Text, NodeText> {
+
+		@Override
+		protected void map(Text key, NodeText value, Context context) throws IOException, InterruptedException {
+
+			// corrige la perte on la rajoutant à tous les noeuds de manière égale
 			double rank = value.getMass();
 			double massLoss = context.getConfiguration().getFloat(DANGLING, 0.0f);
 			rank += massLoss;
@@ -84,7 +257,7 @@ public class Bitcoin extends Configured implements Tool {
 		}
 	}
 
-	static class IIReducerLOSS extends Reducer<IntWritable, NodePR, IntWritable, NodePR> {
+	static class IIReducerLOSS extends Reducer<Text, NodeText, Text, NodeText> {
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
 			super.setup(context);
@@ -92,30 +265,27 @@ public class Bitcoin extends Configured implements Tool {
 		}
 
 		@Override
-		protected void reduce(IntWritable key, Iterable<NodePR> values, Context context) throws IOException,
+		protected void reduce(Text key, Iterable<NodeText> values, Context context) throws IOException,
 				InterruptedException {
-			for (NodePR v : values) { // only done one time
+			for (NodeText v : values) { // only done one time
 				if (Math.abs(v.getMass() - v.getOldMass()) < EPSILON_CRITERION) {
 					context.getCounter(UpdateCounter.UPDATED).increment(1);
 				}
-				System.out.println(key.toString()+" "+v.toString());
 				context.write(key, v);
 			}
 		}
 	}
-
-	static class IIMapperSORT extends Mapper<IntWritable, NodePR, DoubleWritable, Text> {
+	
+	static class IIMapperSORT extends Mapper<Text, NodeText, DoubleWritable, Text> {
 		private static final DoubleWritable KEY = new DoubleWritable();
 		private static final Text VALUE = new Text();
 
 		@Override
-		protected void map(IntWritable key, NodePR value, Context context) throws IOException, InterruptedException {
+		protected void map(Text key, NodeText value, Context context) throws IOException, InterruptedException {
 
 			KEY.set(value.getMass());
 			
-			StringBuilder builder = new StringBuilder();
-			builder.append(String.valueOf(key.get()));
-			VALUE.set(builder.toString());
+			VALUE.set(key.toString());
 			
 			context.write(KEY, VALUE);
 		}
@@ -132,173 +302,6 @@ public class Bitcoin extends Configured implements Tool {
 		}
 	}
 
-	static class IIMapperREGROUP extends Mapper<LongWritable, Text, IntWritable, Text> {
-		private static final IntWritable KEY = new IntWritable();
-		private static final Text VALUE = new Text();
-
-		@Override
-		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			
-			String[] s = value.toString().split("\t".intern());
-
-			KEY.set(Integer.valueOf(s[0]));
-
-			if (s.length == 1) {
-				VALUE.set("".intern());
-				context.write(KEY, VALUE);
-			}
-
-			for (int i = 1; i < s.length; i++) {
-				VALUE.set(s[i]);
-				context.write(KEY, VALUE);
-			}
-		}
-	}
-
-	static class IIReducerREGROUP extends Reducer<IntWritable, Text, IntWritable, NodePR> {
-		private static final NodePR NODE = new NodePR();
-
-		@Override
-		protected void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException,
-				InterruptedException {
-			
-			context.getCounter(UpdateCounter.MAXLINE).increment(1);
-			
-			NODE.setMass(-1);
-			NODE.setOldMass(-1);
-
-			StringBuilder strB = new StringBuilder();
-			for (Text v : values) {
-				strB.append(v.toString()).append(":");
-			}
-			
-			
-			NODE.setAdjacency(strB.toString());
-			context.write(key, NODE);
-		}
-	}
-	
-	static class IIMapperPARSE extends Mapper<IntWritable, NodePR, IntWritable, NodePR> {
-
-		@Override
-		protected void map(IntWritable key, NodePR value, Context context) throws IOException, InterruptedException {
-
-			context.write(key, value);
-		}
-	}
-
-	static class IIReducerPARSE extends Reducer<IntWritable, NodePR, IntWritable, NodePR> {
-		private static final NodePR NODE = new NodePR();
-
-		@Override
-		protected void setup(Context context) throws IOException, InterruptedException {
-			super.setup(context);
-			COUNT = 1.0 / (double) context.getConfiguration().getLong(MAX_LINE, -1);
-			ALPHA_DIV_N = ALPHA * COUNT;
-		}
-
-		@Override
-		protected void reduce(IntWritable key, Iterable<NodePR> values, Context context) throws IOException,
-				InterruptedException {
-			NODE.setMass(COUNT);
-			NODE.setOldMass(0);
-			
-			for (NodePR v : values) {
-				NODE.setAdjacency(v.getAdjacency());
-				context.write(key, NODE);
-			}
-		}
-	}
-
-	static class IIMapper extends Mapper<IntWritable, NodePR, IntWritable, NodePR> {
-
-		private static final IntWritable ID = new IntWritable();
-		private static final NodePR NODE = new NodePR();
-
-		@Override
-		protected void setup(Context context) throws IOException, InterruptedException {
-			super.setup(context);
-			context.getCounter(UpdateCounter.DANGLING).setValue(0);
-		}
-
-		@Override
-		protected void map(IntWritable key, NodePR value, Context context) throws IOException, InterruptedException {
-
-			NODE.clear();
-			NODE.setMass(0);
-			NODE.setID(TAG_UNDANG);
-
-			ID.set(key.get());
-			double p = value.getMass();
-
-			NODE.setOldMass(p);
-
-			if (value.getAdjacency().size() > 0) {
-				NODE.setAdjacency(value.getAdjacency());
-			} else {
-				NODE.setMass(p);
-				NODE.setID(TAG_DANG);
-			}
-			context.write(ID, NODE);
-			NODE.setOldMass(0);
-
-			p /= (double) NODE.getAdjacency().size();
-			NODE.setMass(p);
-			List<Integer> list = NODE.getAdjacencyCopy();
-			NODE.clear();
-			for (int i : list) {
-				ID.set(i);
-				context.write(ID, NODE);
-			}
-		}
-	}
-
-	static class IIReducer extends Reducer<IntWritable, NodePR, IntWritable, NodePR> {
-
-		private static final IntWritable ID = new IntWritable();
-		private static final NodePR NODE = new NodePR();
-		private static double loss = 0;
-
-		@Override
-		protected void setup(Context context) throws IOException, InterruptedException {
-			super.setup(context);
-			loss = 0;
-		}
-
-		@Override
-		protected void reduce(IntWritable key, Iterable<NodePR> values, Context context) throws IOException,
-				InterruptedException {
-
-			NODE.clear();
-
-			double sum = 0;
-
-			for (NodePR d : values) {
-				if (d.getAdjacency().size() != 0) {
-					NODE.setOldMass(d.getOldMass());
-					NODE.setAdjacency(d.getAdjacency());
-				} else if (d.getID() == TAG_DANG) {
-					NODE.setOldMass(d.getOldMass());
-					loss += d.getMass();
-				} else {
-					sum += d.getMass();
-				}
-			}
-
-			ID.set(key.get());
-
-			NODE.setMass(sum);
-			context.write(ID, NODE);
-		}
-
-		@Override
-		protected void cleanup(Context context) throws IOException, InterruptedException {
-			super.cleanup(context);
-
-			context.getCounter(UpdateCounter.DANGLING).increment((long) (loss * MAX_DANG_DIGIT / (double) context.getConfiguration().getLong(MAX_LINE, -1)));
-		}
-	}
-
 	public int run(String[] args) throws Exception {
 		FileSystem.get(new Configuration()).delete(new Path(outputString), true);
 		Path in;
@@ -312,16 +315,16 @@ public class Bitcoin extends Configured implements Tool {
 		
 		
 		out = new Path(outputString + "regroup");
-		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, IntWritable.class, Text.class, IntWritable.class,
-				NodePR.class, inputPath, out, numReducers, Bitcoin.class,TextInputFormat.class, SequenceFileOutputFormat.class, true);
+		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, Text.class, Text.class, Text.class,
+				NodeText.class, inputPath, out, numReducers, BitcoinWithAddress2.class,TextInputFormat.class, SequenceFileOutputFormat.class, true);
 		
 		long nbNodes = jobDATA.getCounters().findCounter(UpdateCounter.MAXLINE).getValue();
 		conf.setLong(MAX_LINE, nbNodes);
 		
 		Job jobPARSE = new Job(conf, "Graph");
 
-		doJob(jobPARSE, IIMapperPARSE.class, IIReducerPARSE.class, IntWritable.class, NodePR.class, IntWritable.class,
-				NodePR.class, out, outputPath, numReducers, Bitcoin.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
+		doJob(jobPARSE, IIMapperPARSE.class, IIReducerPARSE.class, Text.class, NodeText.class, Text.class,
+				NodeText.class, out, outputPath, numReducers, BitcoinWithAddress2.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 		
 
 		do {
@@ -330,8 +333,8 @@ public class Bitcoin extends Configured implements Tool {
 			in = new Path(outputString + (depth - 1));
 			out = new Path(outputString + depth + "tmp");
 
-			doJob(job, IIMapper.class, IIReducer.class, IntWritable.class, NodePR.class, IntWritable.class, NodePR.class,
-					in, out, numReducers, Bitcoin.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
+			doJob(job, IIMapper.class, IIReducer.class, Text.class, NodeText.class, Text.class, NodeText.class,
+					in, out, numReducers, BitcoinWithAddress2.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			float dangling = (float) job.getCounters().findCounter(UpdateCounter.DANGLING).getValue();
 			dangling /= (float) MAX_DANG_DIGIT;
@@ -340,8 +343,8 @@ public class Bitcoin extends Configured implements Tool {
 			Job job2 = new Job(conf, "Graph");
 			in = new Path(outputString + depth + "tmp");
 			out = new Path(outputString + depth);
-			doJob(job2, IIMapperLOSS.class, IIReducerLOSS.class, IntWritable.class, NodePR.class, IntWritable.class,
-					NodePR.class, in, out, numReducers, Bitcoin.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
+			doJob(job2, IIMapperLOSS.class, IIReducerLOSS.class, Text.class, NodeText.class, Text.class,
+					NodeText.class, in, out, numReducers, BitcoinWithAddress2.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			// avoid too much folders. comment for debuging is usefull
 			FileSystem.get(new Configuration()).delete(in, true);
@@ -353,7 +356,7 @@ public class Bitcoin extends Configured implements Tool {
 		conf.set("mapred.textoutputformat.separator", "\t\t");
 		Job jobSORT = new Job(conf, "Graph");
 		doJob(jobSORT, IIMapperSORT.class, IIReducerSORT.class, DoubleWritable.class, Text.class, DoubleWritable.class,
-				Text.class, out, new Path(outputString + "SORTED"), numReducers, Bitcoin.class, SequenceFileInputFormat.class, TextOutputFormat.class, true);
+				Text.class, out, new Path(outputString + "SORTED"), numReducers, BitcoinWithAddress2.class, SequenceFileInputFormat.class, TextOutputFormat.class, true);
 
 		return 0;
 	}
@@ -384,6 +387,6 @@ public class Bitcoin extends Configured implements Tool {
 		job.waitForCompletion(wait);
 	}
 	public static void main(String args[]) throws Exception {
-		ToolRunner.run(new Configuration(), new Bitcoin(args), args);
+		ToolRunner.run(new Configuration(), new BitcoinWithAddress2(args), args);
 	}
 }
