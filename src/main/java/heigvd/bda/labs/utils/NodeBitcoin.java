@@ -11,22 +11,11 @@ import org.apache.hadoop.io.Writable;
 
 public class NodeBitcoin implements Writable {
 
-	private static final int SIZE = 20;
 	private List<BitcoinAddress> adjacency = new ArrayList<BitcoinAddress>();
-	private BytesWritable id = new BytesWritable("null".intern().getBytes());
 	private double mass = 0;
 	private double oldMass = 0;
 	private boolean dang = true;
 
-	public NodeBitcoin(BytesWritable id, double mass, String adjacency) {
-		this.id = id;
-		this.mass = mass;
-	}
-
-	public NodeBitcoin(BytesWritable id, double mass) {
-		this.id = id;
-		this.mass = mass;
-	}
 	
 	public void setUnDang(){
 		this.dang = false;
@@ -75,23 +64,23 @@ public class NodeBitcoin implements Writable {
 		}
 		return s.toString();
 	}
+	
+	
 
 //	static public NodeBitcoin fromString(String pr, String oldPR, String adjs) {
 //		NodeBitcoin n = new NodeBitcoin();
 //		n.mass = Double.valueOf(pr);
 //		n.oldMass = Double.valueOf(oldPR);
-//		n.adjacency = new ArrayList<Integer>();
+//		n.adjacency = new ArrayList<BitcoinAddress>();
 //
 //		for (String adj : adjs.trim().split(":"))
 //			if (adj.trim() != "")
-//				n.adjacency.add(Integer.parseInt(adj));
+//				n.adjacency.add(new BitcoinAddress(adj));
 //
 //		return n;
 //	}
 
 	public void readFields(DataInput in) throws IOException {
-		id.readFields(in);
-		
 		mass = in.readDouble();
 		oldMass = in.readDouble();
 		dang = in.readBoolean();
@@ -105,8 +94,6 @@ public class NodeBitcoin implements Writable {
 	}
 
 	public void write(DataOutput out) throws IOException {
-		id.write(out);
-		out.write(id.getBytes());
 		out.writeDouble(mass);
 		out.writeDouble(oldMass);
 		out.writeBoolean(dang);
@@ -114,14 +101,6 @@ public class NodeBitcoin implements Writable {
 		for (BitcoinAddress myLong : adjacency) {
 			myLong.write(out);
 		}
-	}
-
-	public BytesWritable getID() {
-		return this.id;
-	}
-
-	public void setID(BytesWritable id) {
-		this.id = id;
 	}
 
 	public void setMass(double mass) {
@@ -132,13 +111,18 @@ public class NodeBitcoin implements Writable {
 //		this.adjacency = getAdjacency(adj);
 //	}
 	
-	public void setAdjacency(List<BitcoinAddress> adj) {
+	public void clearSetAdjacency(List<BitcoinAddress> adj) {
 		this.adjacency.clear();
 		this.adjacency.addAll(adj);
 	}
 	
 	public void clearAdja(){
 		adjacency.clear();
+	}
+	
+	public void addAdja(String str){
+		if(str.trim().length()>0)
+			adjacency.add(new BitcoinAddress(str));
 	}
 	
 	public void addAdja(BitcoinAddress b){

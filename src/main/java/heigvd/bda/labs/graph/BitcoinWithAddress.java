@@ -3,6 +3,7 @@ package heigvd.bda.labs.graph;
 import heigvd.bda.labs.trash.NodeText;
 import heigvd.bda.labs.utils.BitcoinAddress;
 import heigvd.bda.labs.utils.DoubleWritable;
+import heigvd.bda.labs.utils.NodeBitcoin;
 import heigvd.bda.labs.utils.PRInputFormat;
 import heigvd.bda.labs.utils.PROutputFormat;
 
@@ -92,8 +93,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 	}
 
-	static class IIReducerREGROUP extends Reducer<BitcoinAddress, Text, BitcoinAddress, NodeText> {
-		private static final NodeText NODE = new NodeText();
+	static class IIReducerREGROUP extends Reducer<BitcoinAddress, Text, BitcoinAddress, NodeBitcoin> {
+		private static final NodeBitcoin NODE = new NodeBitcoin();
 
 		@Override
 		protected void reduce(BitcoinAddress key, Iterable<Text> values, Context context) throws IOException,
@@ -112,18 +113,20 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			}
 			
 			context.write(key, NODE);
+			System.out.println(key.toString()+" "+NODE.toString());
 		}
 	}
 	
-	static class IIMapperPARSE extends Mapper<BitcoinAddress, NodeText, BitcoinAddress, NodeText> {
+	static class IIMapperPARSE extends Mapper<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
 		@Override
-		protected void map(BitcoinAddress key, NodeText value, Context context) throws IOException, InterruptedException {
+		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
+			System.out.println(key.toString()+" "+value.toString());
 			context.write(key, value);
 		}
 	}
 
-	static class IIReducerPARSE extends Reducer<BitcoinAddress, NodeText, BitcoinAddress, NodeText> {
-		private static final NodeText NODE = new NodeText();
+	static class IIReducerPARSE extends Reducer<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
+		private static final NodeBitcoin NODE = new NodeBitcoin();
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
@@ -134,14 +137,14 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 
 		@Override
-		protected void reduce(BitcoinAddress sender, Iterable<NodeText> values, Context context) throws IOException,
+		protected void reduce(BitcoinAddress sender, Iterable<NodeBitcoin> values, Context context) throws IOException,
 				InterruptedException {
 			
 			//ajoute la masse initiale à tous les noeuds
 			NODE.setMass(COUNT);
 			NODE.setOldMass(0);
 			
-			for (NodeText v : values) {
+			for (NodeBitcoin v : values) {
 				NODE.clearSetAdjacency(v.getAdjacency());
 				context.write(sender, NODE);
 				System.out.println(sender.toString()+" "+NODE.toString()+" parser reducer");
@@ -149,10 +152,10 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 	}
 
-	static class IIMapper extends Mapper<BitcoinAddress, NodeText, BitcoinAddress, NodeText> {
+	static class IIMapper extends Mapper<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
 
 		private static final BitcoinAddress ID = new BitcoinAddress();
-		private static final NodeText NODE = new NodeText();
+		private static final NodeBitcoin NODE = new NodeBitcoin();
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
@@ -161,7 +164,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 
 		@Override
-		protected void map(BitcoinAddress key, NodeText value, Context context) throws IOException, InterruptedException {
+		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 
 			NODE.clear();
 			NODE.setMass(0);
@@ -183,19 +186,19 @@ public class BitcoinWithAddress extends Configured implements Tool {
 
 			p /= (double) NODE.getAdjacency().size();
 			NODE.setMass(p);
-			List<String> list = NODE.getAdjacencyCopy();
+			List<BitcoinAddress> list = NODE.getAdjacencyCopy();
 			NODE.clear();
-			for (String i : list) {
+			for (BitcoinAddress i : list) {
 				ID.set(i);
 				context.write(ID, NODE);
 			}
 		}
 	}
 
-	static class IIReducer extends Reducer<BitcoinAddress, NodeText, BitcoinAddress, NodeText> {
+	static class IIReducer extends Reducer<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
 
 		private static final BitcoinAddress ID = new BitcoinAddress();
-		private static final NodeText NODE = new NodeText();
+		private static final NodeBitcoin NODE = new NodeBitcoin();
 		private static double loss = 0;
 
 		@Override
@@ -205,14 +208,14 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 
 		@Override
-		protected void reduce(BitcoinAddress key, Iterable<NodeText> values, Context context) throws IOException,
+		protected void reduce(BitcoinAddress key, Iterable<NodeBitcoin> values, Context context) throws IOException,
 				InterruptedException {
 
 			NODE.clear();
 
 			double sum = 0;
 
-			for (NodeText d : values) {
+			for (NodeBitcoin d : values) {
 				if (d.getAdjacency().size() != 0) {
 					NODE.setOldMass(d.getOldMass());
 					NODE.clearSetAdjacency(d.getAdjacency());
@@ -239,10 +242,10 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 	}
 	
-	static class IIMapperLOSS extends Mapper<BitcoinAddress, NodeText, BitcoinAddress, NodeText> {
+	static class IIMapperLOSS extends Mapper<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
 
 		@Override
-		protected void map(BitcoinAddress key, NodeText value, Context context) throws IOException, InterruptedException {
+		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 
 			// corrige la perte on la rajoutant à tous les noeuds de manière égale
 			double rank = value.getMass();
@@ -255,7 +258,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 	}
 
-	static class IIReducerLOSS extends Reducer<BitcoinAddress, NodeText, BitcoinAddress, NodeText> {
+	static class IIReducerLOSS extends Reducer<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
 			super.setup(context);
@@ -263,9 +266,9 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 
 		@Override
-		protected void reduce(BitcoinAddress key, Iterable<NodeText> values, Context context) throws IOException,
+		protected void reduce(BitcoinAddress key, Iterable<NodeBitcoin> values, Context context) throws IOException,
 				InterruptedException {
-			for (NodeText v : values) { // only done one time
+			for (NodeBitcoin v : values) { // only done one time
 				if (Math.abs(v.getMass() - v.getOldMass()) < EPSILON_CRITERION) {
 					context.getCounter(UpdateCounter.UPDATED).increment(1);
 				}
@@ -274,12 +277,12 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		}
 	}
 	
-	static class IIMapperSORT extends Mapper<BitcoinAddress, NodeText, DoubleWritable, Text> {
+	static class IIMapperSORT extends Mapper<BitcoinAddress, NodeBitcoin, DoubleWritable, Text> {
 		private static final DoubleWritable KEY = new DoubleWritable();
 		private static final Text VALUE = new Text();
 
 		@Override
-		protected void map(BitcoinAddress key, NodeText value, Context context) throws IOException, InterruptedException {
+		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 
 			KEY.set(value.getMass());
 			
@@ -314,24 +317,23 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		
 		out = new Path(outputString + "regroup");
 		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, BitcoinAddress.class, Text.class, BitcoinAddress.class,
-				NodeText.class, inputPath, out, numReducers, BitcoinWithAddress.class,TextInputFormat.class, SequenceFileOutputFormat.class, true);
+				NodeBitcoin.class, inputPath, out, numReducers, BitcoinWithAddress.class,TextInputFormat.class, SequenceFileOutputFormat.class, true);
 		
 		long nbNodes = jobDATA.getCounters().findCounter(UpdateCounter.MAXLINE).getValue();
 		conf.setLong(MAX_LINE, nbNodes);
 		
 		Job jobPARSE = new Job(conf, "Graph");
 
-		doJob(jobPARSE, IIMapperPARSE.class, IIReducerPARSE.class, BitcoinAddress.class, NodeText.class, BitcoinAddress.class,
-				NodeText.class, out, outputPath, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
+		doJob(jobPARSE, IIMapperPARSE.class, IIReducerPARSE.class, BitcoinAddress.class, NodeBitcoin.class, BitcoinAddress.class,
+				NodeBitcoin.class, out, outputPath, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 		
-
 		do {
 			Job job = new Job(conf, "Graph");
 
 			in = new Path(outputString + (depth - 1));
 			out = new Path(outputString + depth + "tmp");
 
-			doJob(job, IIMapper.class, IIReducer.class, BitcoinAddress.class, NodeText.class, BitcoinAddress.class, NodeText.class,
+			doJob(job, IIMapper.class, IIReducer.class, BitcoinAddress.class, NodeBitcoin.class, BitcoinAddress.class, NodeBitcoin.class,
 					in, out, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			float dangling = (float) job.getCounters().findCounter(UpdateCounter.DANGLING).getValue();
@@ -341,8 +343,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			Job job2 = new Job(conf, "Graph");
 			in = new Path(outputString + depth + "tmp");
 			out = new Path(outputString + depth);
-			doJob(job2, IIMapperLOSS.class, IIReducerLOSS.class, BitcoinAddress.class, NodeText.class, BitcoinAddress.class,
-					NodeText.class, in, out, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
+			doJob(job2, IIMapperLOSS.class, IIReducerLOSS.class, BitcoinAddress.class, NodeBitcoin.class, BitcoinAddress.class,
+					NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			// avoid too much folders. comment for debuging is usefull
 			FileSystem.get(new Configuration()).delete(in, true);

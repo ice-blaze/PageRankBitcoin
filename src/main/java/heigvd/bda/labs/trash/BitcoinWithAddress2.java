@@ -30,7 +30,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
-public class BitcoinWithAddress extends Configured implements Tool {
+public class BitcoinWithAddress2 extends Configured implements Tool {
 
 	public enum UpdateCounter {
 		UPDATED, DANGLING, MAXLINE
@@ -51,14 +51,11 @@ public class BitcoinWithAddress extends Configured implements Tool {
 	// private static double EPSILON_CRITERION = 0.00001;
 	private static double EPSILON_CRITERION = 0.001;
 
-	private static final int TAG_DANG = 0;
-	private static final int TAG_UNDANG = 1;
-
 	public static String[] splitNode(String text) {
 		return text.split("\t");
 	}
 
-	public BitcoinWithAddress(String[] args) throws IOException {
+	public BitcoinWithAddress2(String[] args) throws IOException {
 		if (args.length != 3) {
 			System.out.println("Usage: Graph <num_reducers> <input_path> <output_path>");
 			System.exit(0);
@@ -223,7 +220,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			NODE.setOldMass(0);
 
 			for (NodeBitcoin v : values) {
-				NODE.setAdjacency(v.getAdjacency());
+				NODE.clearSetAdjacency(v.getAdjacency());
 				context.write(key, NODE);
 			}
 		}
@@ -256,7 +253,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			NODE.setOldMass(p);
 
 			if (value.getAdjacency().size() > 0) {
-				NODE.setAdjacency(value.getAdjacency());
+				NODE.clearSetAdjacency(value.getAdjacency());
 			} else {
 				NODE.setMass(p);
 				NODE.setDang();
@@ -300,7 +297,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			for (NodeBitcoin d : values) {
 				if (d.getAdjacency().size() != 0) {
 					NODE.setOldMass(d.getOldMass());
-					NODE.setAdjacency(d.getAdjacency());
+					NODE.clearSetAdjacency(d.getAdjacency());
 				} else if (d.isDang()) {
 					NODE.setOldMass(d.getOldMass());
 					loss += d.getMass();
@@ -339,7 +336,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		out = new Path(outputString + "regroup");
 		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, Text.class, Text.class, Text.class,
 				NodeBitcoin.class, inputPath, out, numReducers, 
-				BitcoinWithAddress.class, TextInputFormat.class,SequenceFileOutputFormat.class, true);
+				BitcoinWithAddress2.class, TextInputFormat.class,SequenceFileOutputFormat.class, true);
 
 		long nbNodes = jobDATA.getCounters().findCounter(UpdateCounter.MAXLINE).getValue();
 		conf.setLong(MAX_LINE, nbNodes);
@@ -350,7 +347,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 
 		doJob(jobPARSE, IIMapperPARSE.class, IIReducerPARSE.class, BitcoinAddress.class, NodeBitcoin.class,
 				BitcoinAddress.class, NodeBitcoin.class, out, outputPath, numReducers, 
-				BitcoinWithAddress.class, SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
+				BitcoinWithAddress2.class, SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 		do {
 			Job job = new Job(conf, "Graph");
@@ -359,7 +356,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			out = new Path(outputString + depth + "tmp");
 
 			doJob(job, IIMapper.class, IIReducer.class, BitcoinAddress.class, NodeBitcoin.class, BitcoinAddress.class,
-					NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress.class, SequenceFileInputFormat.class,
+					NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress2.class, SequenceFileInputFormat.class,
 					SequenceFileOutputFormat.class, true);
 
 			float dangling = (float) job.getCounters().findCounter(UpdateCounter.DANGLING).getValue();
@@ -370,7 +367,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			in = new Path(outputString + depth + "tmp");
 			out = new Path(outputString + depth);
 			doJob(job2, IIMapperLOSS.class, IIReducerLOSS.class, BitcoinAddress.class, NodeBitcoin.class,
-					BitcoinAddress.class, NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress.class,
+					BitcoinAddress.class, NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress2.class,
 					SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			// avoid too much folders. comment for debuging is usefull
@@ -383,7 +380,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		conf.set("mapred.textoutputformat.separator", "\t\t");
 		Job jobSORT = new Job(conf, "Graph");
 		doJob(jobSORT, IIMapperSORT.class, IIReducerSORT.class, DoubleWritable.class, Text.class, DoubleWritable.class,
-				Text.class, out, new Path(outputString + "SORTED"), numReducers, BitcoinWithAddress.class,
+				Text.class, out, new Path(outputString + "SORTED"), numReducers, BitcoinWithAddress2.class,
 				SequenceFileInputFormat.class, TextOutputFormat.class, true);
 
 		return 0;
@@ -417,6 +414,6 @@ public class BitcoinWithAddress extends Configured implements Tool {
 	}
 
 	public static void main(String args[]) throws Exception {
-		ToolRunner.run(new Configuration(), new BitcoinWithAddress(args), args);
+		ToolRunner.run(new Configuration(), new BitcoinWithAddress2(args), args);
 	}
 }

@@ -26,7 +26,7 @@ public class NodeText implements Writable {
 		this.id = id;
 		this.mass = mass;
 	}
-
+	
 	public NodeText() {
 
 	}

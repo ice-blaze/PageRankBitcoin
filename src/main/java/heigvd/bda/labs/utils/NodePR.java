@@ -11,21 +11,21 @@ import org.apache.hadoop.io.Writable;
 public class NodePR implements Writable {
 
 	private List<Integer> adjacency = new ArrayList<Integer>();
-	private int id = -1;
+//	private int id = -1;
 	private double mass = 0;
 	private double oldMass = 0;
 	private boolean dang = true;
 
-	public NodePR(int id, double mass, String adjacency) {
-		this.id = id;
-		this.mass = mass;
-		this.adjacency = getAdjacency(adjacency);
-	}
+//	public NodePR(int id, double mass, String adjacency) {
+////		this.id = id;
+//		this.mass = mass;
+//		this.adjacency = getAdjacency(adjacency);
+//	}
 
-	public NodePR(int id, double mass) {
-		this.id = id;
-		this.mass = mass;
-	}
+//	public NodePR(int id, double mass) {
+////		this.id = id;
+//		this.mass = mass;
+//	}
 
 	public NodePR() {
 
@@ -89,7 +89,7 @@ public class NodePR implements Writable {
 	}
 
 	public void readFields(DataInput in) throws IOException {
-		id = in.readInt();
+//		id = in.readInt();
 		dang = in.readBoolean();
 		mass = in.readDouble();
 		oldMass = in.readDouble();
@@ -101,7 +101,7 @@ public class NodePR implements Writable {
 	}
 
 	public void write(DataOutput out) throws IOException {
-		out.writeInt(id);
+//		out.writeInt(id);
 		out.writeBoolean(dang);
 		out.writeDouble(mass);
 		out.writeDouble(oldMass);
@@ -111,13 +111,13 @@ public class NodePR implements Writable {
 		}
 	}
 
-	public int getID() {
-		return this.id;
-	}
-
-	public void setID(int id) {
-		this.id = id;
-	}
+//	public int getID() {
+//		return this.id;
+//	}
+//
+//	public void setID(int id) {
+//		this.id = id;
+//	}
 
 	public void setMass(double mass) {
 		this.mass = mass;

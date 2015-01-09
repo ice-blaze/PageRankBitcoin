@@ -12,7 +12,7 @@ import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableComparator;
 
 public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
-	final static int SIZE = 20;
+	public final static int SIZE = 20;
 	byte[] address = new byte[SIZE];
 	
 	public BitcoinAddress(String str){// wrong
@@ -33,7 +33,7 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 	public void set(String string){
 		address = string.getBytes();
 		if(address.length!=SIZE){
-			System.out.println("NOT 20 LENGTH !!!");
+			System.out.println(string+" NOT 20 LENGTH !!!");
 		}
 	}
 	
