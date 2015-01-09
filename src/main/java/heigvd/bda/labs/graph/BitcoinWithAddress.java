@@ -32,7 +32,7 @@ import org.apache.hadoop.util.ToolRunner;
 public class BitcoinWithAddress extends Configured implements Tool {
 
 	public enum UpdateCounter {
-		UPDATED, DANGLING, MAXLINE
+		UPDATED, DANGLING, MAXLINE, LOSS, COUNT
 	}
 
 	private int numReducers;
@@ -40,13 +40,14 @@ public class BitcoinWithAddress extends Configured implements Tool {
 	private Path outputPath;
 	private static String outputString;
 //	private static int NB_NODES = 0;
-	private static double COUNT = 0;
-	private static final double ALPHA = 0.15;
-	private static final double BETA = 1 - ALPHA;
-	private static double ALPHA_DIV_N = 0;
+//	private static double COUNT = 0;
+	private static final float ALPHA = 0.15f;
+	private static final float BETA = 1 - ALPHA;
+	private static float ALPHA_DIV_N = 0;
 	private static final long MAX_DANG_DIGIT = 1000000000;
 	private static final String DANGLING = "DANGLING";
 	private static final String MAX_LINE = "MAX_LINE";
+	private static final String COUNT = "COUNT";
 //	private static double EPSILON_CRITERION = 0.00001;
 	private static double EPSILON_CRITERION = 0.001;
 
@@ -114,13 +115,16 @@ public class BitcoinWithAddress extends Configured implements Tool {
 
 	static class IIReducerPARSE extends Reducer<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
 		private static final NodeBitcoin NODE = new NodeBitcoin();
+//		private static double COUNT = 0;
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
 			super.setup(context);
 			//calcule la masse initiale
-			COUNT = 1.0 / (double) context.getConfiguration().getLong(MAX_LINE, -1);
-			ALPHA_DIV_N = ALPHA * COUNT;
+			float temp = 1.0f / (float) context.getConfiguration().getLong(MAX_LINE, -1);
+			
+			context.getConfiguration().setFloat(COUNT, temp);
+			ALPHA_DIV_N = ALPHA * temp;
 		}
 
 		@Override
@@ -128,7 +132,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 				InterruptedException {
 			
 			//ajoute la masse initiale à tous les noeuds
-			NODE.setMass(COUNT);
+			NODE.setMass(context.getConfiguration().getFloat(COUNT,-110));
 			NODE.setOldMass(0);
 			
 			for (NodeBitcoin v : values) {
@@ -144,12 +148,6 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		private static final NodeBitcoin NODE = new NodeBitcoin();
 
 		@Override
-		protected void setup(Context context) throws IOException, InterruptedException {
-			super.setup(context);
-			context.getCounter(UpdateCounter.DANGLING).setValue(0);
-		}
-
-		@Override
 		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 
 			System.out.println(key.toString()+" "+value.toString());
@@ -158,8 +156,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			NODE.setMass(0);
 			NODE.setUnDang();
 
-			ID.set(key);
-			double p = value.getMass();
+			float p = value.getMass();
 
 			NODE.setOldMass(p);
 
@@ -169,7 +166,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 				NODE.setMass(p);
 				NODE.setDang();
 			}
-			context.write(ID, NODE);
+			context.write(key, NODE);
 			NODE.setOldMass(0);
 
 			p /= (double) NODE.getAdjacency().size();
@@ -187,12 +184,12 @@ public class BitcoinWithAddress extends Configured implements Tool {
 
 		private static final BitcoinAddress ID = new BitcoinAddress();
 		private static final NodeBitcoin NODE = new NodeBitcoin();
-		private static double loss = 0;
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
 			super.setup(context);
-			loss = 0;
+			context.getCounter(UpdateCounter.DANGLING).setValue(0);
+			context.getCounter(UpdateCounter.LOSS).setValue(0);
 		}
 
 		@Override
@@ -201,7 +198,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 
 			NODE.clear();
 
-			double sum = 0;
+			float sum = 0;
 
 			for (NodeBitcoin d : values) {
 				if (d.getAdjacency().size() != 0) {
@@ -209,7 +206,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 					NODE.clearSetAdjacency(d.getAdjacency());
 				} else if (d.isDang()) {
 					NODE.setOldMass(d.getOldMass());
-					loss += d.getMass();
+					context.getCounter(UpdateCounter.LOSS).increment((long) (d.getMass()*MAX_DANG_DIGIT));
 				} else {
 					sum += d.getMass();
 				}
@@ -225,7 +222,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		protected void cleanup(Context context) throws IOException, InterruptedException {
 			super.cleanup(context);
 
-			context.getCounter(UpdateCounter.DANGLING).increment((long) (loss * MAX_DANG_DIGIT / (double) context.getConfiguration().getLong(MAX_LINE, -1)));
+			long loss = context.getCounter(UpdateCounter.LOSS).getValue();
+			context.getCounter(UpdateCounter.DANGLING).increment((long) (loss / (double) context.getConfiguration().getLong(MAX_LINE, -1)));
 		}
 	}
 	
@@ -235,10 +233,10 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 
 			// corrige la perte on la rajoutant à tous les noeuds de manière égale
-			double rank = value.getMass();
-			double massLoss = context.getConfiguration().getFloat(DANGLING, 0.0f);
+			float rank = value.getMass();
+			float massLoss = context.getConfiguration().getFloat(DANGLING, 0.0f);
 			rank += massLoss;
-			rank = ALPHA_DIV_N + BETA * rank;
+			rank = (float) (ALPHA_DIV_N + BETA * rank);
 			value.setMass(rank);
 			
 			context.write(key, value);
@@ -337,7 +335,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 					NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			// avoid too much folders. comment for debuging is usefull
-//			FileSystem.get(new Configuration()).delete(in, true);
+			FileSystem.get(new Configuration()).delete(in, true);
 
 			depth++;
 			counter = job2.getCounters().findCounter(UpdateCounter.UPDATED).getValue();

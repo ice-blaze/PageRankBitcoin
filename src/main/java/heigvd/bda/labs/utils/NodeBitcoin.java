@@ -12,8 +12,8 @@ import org.apache.hadoop.io.Writable;
 public class NodeBitcoin implements Writable {
 
 	private List<BitcoinAddress> adjacency = new ArrayList<BitcoinAddress>();
-	private double mass = 0;
-	private double oldMass = 0;
+	private float mass = 0;
+	private float oldMass = 0;
 	private boolean dang = true;
 
 	
@@ -81,8 +81,8 @@ public class NodeBitcoin implements Writable {
 //	}
 
 	public void readFields(DataInput in) throws IOException {
-		mass = in.readDouble();
-		oldMass = in.readDouble();
+		mass = in.readFloat();
+		oldMass = in.readFloat();
 		dang = in.readBoolean();
 		int len = in.readInt();
 		adjacency.clear();
@@ -94,8 +94,8 @@ public class NodeBitcoin implements Writable {
 	}
 
 	public void write(DataOutput out) throws IOException {
-		out.writeDouble(mass);
-		out.writeDouble(oldMass);
+		out.writeFloat(mass);
+		out.writeFloat(oldMass);
 		out.writeBoolean(dang);
 		out.writeInt(adjacency.size());
 		for (BitcoinAddress myLong : adjacency) {
@@ -103,7 +103,7 @@ public class NodeBitcoin implements Writable {
 		}
 	}
 
-	public void setMass(double mass) {
+	public void setMass(float mass) {
 		this.mass = mass;
 	}
 
@@ -129,15 +129,15 @@ public class NodeBitcoin implements Writable {
 		adjacency.add(b);
 	}
 
-	public double getMass() {
+	public float getMass() {
 		return this.mass;
 	}
 
-	public double getOldMass() {
+	public float getOldMass() {
 		return this.oldMass;
 	}
 
-	public void setOldMass(double oldMass) {
+	public void setOldMass(float oldMass) {
 		this.oldMass = oldMass;
 	}
 
