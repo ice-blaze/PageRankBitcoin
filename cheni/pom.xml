@@ -2,6 +2,7 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>heigvd.bda.labs.graph</groupId>
+  <artifactId>bitcoin</artifactId>
   <packaging>jar</packaging>
   <version>1</version>
   <name>bitcoin</name>
@@ -24,5 +25,4 @@
 	  <version>2.9.4</version>
     </dependency>      
   </dependencies>
-  <artifactId>bitcoin</artifactId>
 </project>

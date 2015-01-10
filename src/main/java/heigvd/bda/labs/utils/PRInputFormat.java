@@ -28,6 +28,7 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.commons.logging.Log;
 
 public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddress> {
 
@@ -50,30 +51,14 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 			} catch (URISyntaxException e) {
 				e.printStackTrace();
 			}
-			FileSystem fs = FileSystem.get(uri,context.getConfiguration());
+			FileSystem fs = FileSystem.get(uri,context.getConfiguration());//amazon
+//			FileSystem fs = FileSystem.get(context.getConfiguration());//distri
 			FileStatus[] status = fs.listStatus(new Path(PRInputFormat.getInputPaths(context)[0].toString()));
 			for(FileStatus f : status){
 				FSDataInputStream dis = fs.open(f.getPath());
 				this.fileSize += f.getLen();
 				this.readers.add(dis);
-			}
-//			try {
-//				
-//				File directory = new File(new URI(PRInputFormat.getInputPaths(context)[0].toString()));
-//				for (File file : directory.listFiles(new FilenameFilter() {
-//					public boolean accept(File dir, String name) {
-//						return name.toLowerCase().endsWith(".bin");
-//					}
-//				})) {
-//					this.fileSize += file.length();
-//
-//					BufferedInputStream br = new BufferedInputStream(new FileInputStream(file), 4096);
-//					this.readers.add(br);
-//				}
-//			} catch (URISyntaxException e) {
-//				e.printStackTrace();
-//			}
-			
+			}	
 		}
 
 		@Override

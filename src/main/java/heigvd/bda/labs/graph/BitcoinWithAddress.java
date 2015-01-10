@@ -43,13 +43,14 @@ public class BitcoinWithAddress extends Configured implements Tool {
 //	private static double COUNT = 0;
 	private static final float ALPHA = 0.15f;
 	private static final float BETA = 1 - ALPHA;
-	private static float ALPHA_DIV_N = 0;
-	private static final long MAX_DANG_DIGIT = 1000000000;
+//	private static float ALPHA_DIV_N = 0;
+//	private static final long MAX_DANG_DIGIT = 1000000000;
+	private static final long MAX_DANG_DIGIT = 1000000;
 	private static final String DANGLING = "DANGLING";
 	private static final String MAX_LINE = "MAX_LINE";
 	private static final String COUNT = "COUNT";
-//	private static double EPSILON_CRITERION = 0.00001;
-	private static double EPSILON_CRITERION = 0.001;
+	private static double EPSILON_CRITERION = 0.00001;
+//	private static double EPSILON_CRITERION = 0.01;
 
 	public static String[] splitNode(String text) {
 		return text.split("\t");
@@ -115,7 +116,6 @@ public class BitcoinWithAddress extends Configured implements Tool {
 
 	static class IIReducerPARSE extends Reducer<BitcoinAddress, NodeBitcoin, BitcoinAddress, NodeBitcoin> {
 		private static final NodeBitcoin NODE = new NodeBitcoin();
-//		private static double COUNT = 0;
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
@@ -124,7 +124,6 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			float temp = 1.0f / (float) context.getConfiguration().getLong(MAX_LINE, -1);
 			
 			context.getConfiguration().setFloat(COUNT, temp);
-			ALPHA_DIV_N = ALPHA * temp;
 		}
 
 		@Override
@@ -150,7 +149,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		@Override
 		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 
-			System.out.println(key.toString()+" "+value.toString());
+			System.out.println(key.toString()+" "+value.toString()+" map");
 			
 			NODE.clear();
 			NODE.setMass(0);
@@ -215,6 +214,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			ID.set(key);
 
 			NODE.setMass(sum);
+			
+			System.out.println(ID.toString()+" "+NODE.toString()+" reducer");
 			context.write(ID, NODE);
 		}
 
@@ -236,7 +237,13 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			float rank = value.getMass();
 			float massLoss = context.getConfiguration().getFloat(DANGLING, 0.0f);
 			rank += massLoss;
-			rank = (float) (ALPHA_DIV_N + BETA * rank);
+			
+			
+			float alpha_div_n = 1.0f / (float) context.getConfiguration().getLong(MAX_LINE, -110);
+			alpha_div_n *= ALPHA;
+			rank = (float) (alpha_div_n + BETA * rank);
+			System.out.print(rank);System.out.println("  alphadivn+beta*rank");
+			
 			value.setMass(rank);
 			
 			context.write(key, value);
@@ -257,6 +264,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 				if (Math.abs(v.getMass() - v.getOldMass()) < EPSILON_CRITERION) {
 					context.getCounter(UpdateCounter.UPDATED).increment(1);
 				}
+				System.out.println(key.toString()+" "+v.toString()+" reduce loss");
 				context.write(key, v);
 			}
 		}
@@ -315,6 +323,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		doJob(jobPARSE, IIMapperPARSE.class, IIReducerPARSE.class, BitcoinAddress.class, NodeBitcoin.class, BitcoinAddress.class,
 				NodeBitcoin.class, out, outputPath, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 		
+		FileSystem.get(new Configuration()).delete(out, true);//clean folder
+		
 		do {
 			Job job = new Job(conf, "Graph");
 
@@ -328,6 +338,8 @@ public class BitcoinWithAddress extends Configured implements Tool {
 			dangling /= (float) MAX_DANG_DIGIT;
 			conf.setFloat(DANGLING, dangling);
 
+			FileSystem.get(new Configuration()).delete(in, true);//clean folder
+			
 			Job job2 = new Job(conf, "Graph");
 			in = new Path(outputString + depth + "tmp");
 			out = new Path(outputString + depth);
@@ -335,7 +347,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 					NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			// avoid too much folders. comment for debuging is usefull
-//			FileSystem.get(new Configuration()).delete(in, true);
+			FileSystem.get(new Configuration()).delete(in, true);
 
 			depth++;
 			counter = job2.getCounters().findCounter(UpdateCounter.UPDATED).getValue();
