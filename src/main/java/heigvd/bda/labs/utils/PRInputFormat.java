@@ -44,7 +44,13 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 
 		@Override
 		public void initialize(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException {
-			FileSystem fs = FileSystem.get(context.getConfiguration());
+			URI uri = null;
+			try {
+				uri = new URI("hdfs://172.31.14.155:9000");
+			} catch (URISyntaxException e) {
+				e.printStackTrace();
+			}
+			FileSystem fs = FileSystem.get(uri,context.getConfiguration());
 			FileStatus[] status = fs.listStatus(new Path(PRInputFormat.getInputPaths(context)[0].toString()));
 			for(FileStatus f : status){
 				FSDataInputStream dis = fs.open(f.getPath());

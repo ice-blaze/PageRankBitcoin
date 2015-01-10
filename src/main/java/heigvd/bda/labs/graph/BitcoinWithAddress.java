@@ -290,9 +290,9 @@ public class BitcoinWithAddress extends Configured implements Tool {
 
 	public int run(String[] args) throws Exception {
 		Configuration conf = this.getConf();
-		conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
-		conf.set("fs.file.impl", LocalFileSystem.class.getName());
-		FileSystem.get(conf).delete(new Path(outputString), true);
+//		conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
+//		conf.set("fs.file.impl", LocalFileSystem.class.getName());
+//		FileSystem.get(conf).delete(new Path(outputString), true);
 		
 		Path in;
 		Path out;
@@ -301,7 +301,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 		int depth = 1;
 		
 		Job jobDATA = new Job(conf, "Graph");
-		FileSystem.get(conf).delete(outputPath, true);
+//		FileSystem.get(conf).delete(outputPath, true);
 		
 		out = new Path(outputString + "regroup");
 		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, BitcoinAddress.class, BitcoinAddress.class, BitcoinAddress.class,
@@ -335,7 +335,7 @@ public class BitcoinWithAddress extends Configured implements Tool {
 					NodeBitcoin.class, in, out, numReducers, BitcoinWithAddress.class,SequenceFileInputFormat.class, SequenceFileOutputFormat.class, true);
 
 			// avoid too much folders. comment for debuging is usefull
-			FileSystem.get(new Configuration()).delete(in, true);
+//			FileSystem.get(new Configuration()).delete(in, true);
 
 			depth++;
 			counter = job2.getCounters().findCounter(UpdateCounter.UPDATED).getValue();
