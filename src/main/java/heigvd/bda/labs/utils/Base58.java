@@ -1,8 +1,6 @@
 package heigvd.bda.labs.utils;
 
 import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * <p>Base58 is a way to encode Bitcoin addresses as numbers and letters. Note that this is not the same base58 as used by
@@ -87,23 +85,6 @@ public class Base58 {
             number[i] = (byte) (temp / 58);
 
             remainder = temp % 58;
-        }
-
-        return (byte) remainder;
-    }
-
-    //
-    // number -> number / 256, returns number % 256
-    //
-    private static byte divmod256(byte[] number58, int startAt) {
-        int remainder = 0;
-        for (int i = startAt; i < number58.length; i++) {
-            int digit58 = (int) number58[i] & 0xFF;
-            int temp = remainder * 58 + digit58;
-
-            number58[i] = (byte) (temp / 256);
-
-            remainder = temp % 256;
         }
 
         return (byte) remainder;
