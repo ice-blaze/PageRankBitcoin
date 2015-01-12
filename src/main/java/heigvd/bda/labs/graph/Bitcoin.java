@@ -34,6 +34,7 @@ public class Bitcoin extends Configured implements Tool {
 	}
 
 	private int numReducers;
+	private int iterationLimite = 0;
 	private Path inputPath;
 	private Path outputPath;
 	private static String outputString;
@@ -43,7 +44,7 @@ public class Bitcoin extends Configured implements Tool {
 	private static final float BETA = 1 - ALPHA;
 //	private static float ALPHA_DIV_N = 0;
 //	private static final long MAX_DANG_DIGIT = 1000000000;
-	private static final long MAX_DANG_DIGIT = 1000000;
+	private static final long MAX_DANG_DIGIT = 1000000000L;//E^9
 	private static final String DANGLING = "DANGLING";
 	private static final String MAX_LINE = "MAX_LINE";
 	private static final String COUNT = "COUNT";
@@ -55,8 +56,8 @@ public class Bitcoin extends Configured implements Tool {
 	}
 
 	public Bitcoin(String[] args) throws IOException {
-		if (args.length != 3) {
-			System.out.println("Usage: Graph <num_reducers> <input_path> <output_path>");
+		if (args.length != 4) {
+			System.out.println("Usage: Graph <num_reducers> <input_path> <output_path> <nb_iteration>");
 			System.exit(0);
 		}
 		numReducers = Integer.parseInt(args[0]);
@@ -64,6 +65,7 @@ public class Bitcoin extends Configured implements Tool {
 		outputString = args[2];
 		inputPath = new Path(args[1]);
 		outputPath = new Path(outputString + "0");
+		iterationLimite = Integer.valueOf(args[3]);
 	}
 
 	static class IIMapperREGROUP extends Mapper<BitcoinAddress, BitcoinAddress, BitcoinAddress, BitcoinAddress> {
@@ -213,7 +215,6 @@ public class Bitcoin extends Configured implements Tool {
 
 			NODE.setMass(sum);
 			
-			System.out.println(ID.toString()+" "+NODE.toString()+" reducer");
 			context.write(ID, NODE);
 		}
 
@@ -240,7 +241,6 @@ public class Bitcoin extends Configured implements Tool {
 			float alpha_div_n = 1.0f / (float) context.getConfiguration().getLong(MAX_LINE, -110);
 			alpha_div_n *= ALPHA;
 			rank = (float) (alpha_div_n + BETA * rank);
-			System.out.print(rank);System.out.println("  alphadivn+beta*rank");
 			
 			value.setMass(rank);
 			
@@ -262,7 +262,6 @@ public class Bitcoin extends Configured implements Tool {
 				if (Math.abs(v.getMass() - v.getOldMass()) < EPSILON_CRITERION) {
 					context.getCounter(UpdateCounter.UPDATED).increment(1);
 				}
-				System.out.println(key.toString()+" "+v.toString()+" reduce loss");
 				context.write(key, v);
 			}
 		}
@@ -302,7 +301,7 @@ public class Bitcoin extends Configured implements Tool {
 		Path in;
 		Path out;
 
-		long counter = 0;
+		long counterOfUnchangedNodes = 0;
 		int depth = 1;
 		
 		Job jobDATA = new Job(conf, "Graph");
@@ -349,13 +348,16 @@ public class Bitcoin extends Configured implements Tool {
 			fs.delete(in, true);			
 
 			depth++;
-			counter = job2.getCounters().findCounter(UpdateCounter.UPDATED).getValue();
-		} while (counter < nbNodes);
+			counterOfUnchangedNodes = job2.getCounters().findCounter(UpdateCounter.UPDATED).getValue();
+			
+			iterationLimite--;
+			// 
+		} while (counterOfUnchangedNodes < nbNodes  && iterationLimite > 0);
 
 		conf.set("mapred.textoutputformat.separator", "\t\t");
 		Job jobSORT = new Job(conf, "Graph");
 		doJob(jobSORT, IIMapperSORT.class, IIReducerSORT.class, DoubleWritable.class, Text.class, DoubleWritable.class,
-				Text.class, out, new Path(outputString + "SORTED"), numReducers, Bitcoin.class, SequenceFileInputFormat.class, TextOutputFormat.class, true);
+				Text.class, out, new Path(outputString + "SORTED"), 1, Bitcoin.class, SequenceFileInputFormat.class, TextOutputFormat.class, true);
 
 		return 0;
 	}
