@@ -95,7 +95,6 @@ public class Bitcoin extends Configured implements Tool {
 			NODE.setOldMass(-1);
 			NODE.clear();
 			
-
 			for (BitcoinAddress v : values) {
 				if(!v.isEmpty()){
 					NODE.addAdja(v);
@@ -308,7 +307,7 @@ public class Bitcoin extends Configured implements Tool {
 		
 		out = new Path(outputString + "regroup");
 		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, BitcoinAddress.class, BitcoinAddress.class, BitcoinAddress.class,
-				NodeBitcoin.class, inputPath, out, numReducers, Bitcoin.class,PRInputFormat.class, SequenceFileOutputFormat.class, true);
+				NodeBitcoin.class, inputPath, out, 1, Bitcoin.class,PRInputFormat.class, SequenceFileOutputFormat.class, true);
 		
 		long nbNodes = jobDATA.getCounters().findCounter(UpdateCounter.MAXLINE).getValue();
 		conf.setLong(MAX_LINE, nbNodes);

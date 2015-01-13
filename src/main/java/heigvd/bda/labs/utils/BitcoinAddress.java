@@ -46,11 +46,13 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 	
 	
 	public String toString(){//TODO should be 256 to 58
-		byte[] tab = new byte[25];
+		byte[] tab = new byte[21];
 		tab[0] = 0x00;
 		for(int i=1;i<SIZE+1;i++){
 			tab[i]=address[i-1];
 		}
+		
+		
 		
 		MessageDigest md = null;
 		try {
@@ -59,14 +61,18 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 			e.printStackTrace();
 		}
 
-	    byte[] checksum = md.digest(tab);
-	    tab[21] = checksum[0];
-	    tab[22] = checksum[1];
-	    tab[23] = checksum[2];
-	    tab[24] = checksum[3];
+		byte[] tabResult = new byte[25];
+		for(int i=0;i<21;i++){
+			tabResult[i] = tab[i];
+		}
+		
+	    byte[] checksum = md.digest(md.digest(tab));
+	    tabResult[21] = checksum[0];
+	    tabResult[22] = checksum[1];
+	    tabResult[23] = checksum[2];
+	    tabResult[24] = checksum[3];
 	    
-	    
-	    return Base58.encode(tab);
+	    return Base58.encode(tabResult);
 //		try {
 //			return new String(address, "UTF-8");
 //		} catch (UnsupportedEncodingException e) {
