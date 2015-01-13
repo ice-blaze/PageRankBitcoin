@@ -102,7 +102,7 @@ public class Bitcoin extends Configured implements Tool {
 			}
 			
 			context.write(key, NODE);
-			System.out.println(key.toString()+" "+NODE.toString());
+//			System.out.println(key.toString()+" "+NODE.toString());
 		}
 	}
 	
@@ -148,7 +148,7 @@ public class Bitcoin extends Configured implements Tool {
 		@Override
 		protected void map(BitcoinAddress key, NodeBitcoin value, Context context) throws IOException, InterruptedException {
 
-			System.out.println(key.toString()+" "+value.toString()+" map");
+//			System.out.println(key.toString()+" "+value.toString()+" map");
 			
 			NODE.clear();
 			NODE.setMass(0);

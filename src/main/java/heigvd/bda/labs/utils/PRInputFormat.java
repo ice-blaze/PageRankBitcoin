@@ -45,6 +45,8 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 				this.fileSize += f.getLen();
 				this.readers.add(dis);
 			}	
+			System.out.println(this.fileSize);
+			System.out.println(this.readers.size());
 		}
 
 		@Override
@@ -66,7 +68,7 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 
 					this.currentKey = new BitcoinAddress(key);
 					this.currentValue = new BitcoinAddress(value);
-//					N++;
+					N++;
 					return true;
 				}
 			}
@@ -95,8 +97,8 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 				reader.close();
 			this.currentKey = null;
 			this.currentValue = null;
-//			System.out.println(N);
-//			System.exit(0);
+			System.out.println(N);
+			System.exit(0);
 		}
 	}
 
