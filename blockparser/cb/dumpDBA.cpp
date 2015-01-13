@@ -136,6 +136,8 @@ struct DumpDBA : public Callback
     Transactions transactionsProcessed; // One address to another.
     uint64_t nbTransactionProcessed; // Number of Bitcoin transaction (many-to-many).
 
+    AddressSet addresses;
+
     vector<Address> currentInputs; // Inputs for the current transaction.
     vector<Address> currentOutputs; // Outputs for the current transaction.
 
@@ -237,6 +239,7 @@ struct DumpDBA : public Callback
         {
             Address a(address);
             this->currentInputs.push_back(a);
+            this->addresses.insert(a);
         }
     }
 
@@ -258,6 +261,7 @@ struct DumpDBA : public Callback
             Address a(address);
             //cout << "Address output: " << a << endl;
             this->currentOutputs.push_back(a);
+            this->addresses.insert(a);
         }
     }
 
@@ -309,7 +313,16 @@ struct DumpDBA : public Callback
             cout << "Current height: " << this->currBlock << ", nb transaction: " << this->nbTransactionProcessed << " ..." << endl;
 
         if (this->currBlock >= this->heightMax)
+        {
+            this->wrapup();
             exit(0);
+        }
+    }
+
+    void wrapup() override
+    {
+        cout << "Number of unique address: " << this->addresses.size() << endl;
+        cout << "Number of transaction: " << this->transactionsProcessed.size() << endl;
     }
 };
 

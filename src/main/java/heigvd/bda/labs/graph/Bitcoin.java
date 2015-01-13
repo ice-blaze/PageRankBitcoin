@@ -57,7 +57,7 @@ public class Bitcoin extends Configured implements Tool {
 
 	public Bitcoin(String[] args) throws IOException {
 		if (args.length != 4) {
-			System.out.println("Usage: Graph <num_reducers> <input_path> <output_path> <nb_iteration>");
+			System.out.println("Usage: Bitcoin <num_reducers> <input_path> <output_path> <nb_iteration>");
 			System.exit(0);
 		}
 		numReducers = Integer.parseInt(args[0]);
