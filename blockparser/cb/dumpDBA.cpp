@@ -134,6 +134,8 @@ struct DumpDBA : public Callback
     using AddressSet = sparse_hash_set<Address>;
     using Transactions = sparse_hash_map<Address, AddressSet>;
     Transactions transactionsProcessed; // One address to another.
+
+    uint64_t nbTransactionMax = numeric_limits<uint64_t>::max();
     uint64_t nbTransactionProcessed; // Number of Bitcoin transaction (many-to-many).
 
     AddressSet addresses;
@@ -160,17 +162,26 @@ struct DumpDBA : public Callback
             )
             .epilog("")
         ;
+
         this->parser
             .add_option("-o", "--output")
             .type("string")
             .set_default("output.bin")
             .help("Define the output (default: 'output.bin')")
         ;
+
         this->parser
             .add_option("-h", "--height")
             .type("uint64_t")
             .set_default(0)
             .help("Define the maximum height (default: unlimited)")
+        ;
+
+        this->parser
+            .add_option("-n", "--nbtransactionmax")
+            .type("uint64_t")
+            .set_default(0)
+            .help("Define the maximum number of transaction exported (default: unlimited)")
         ;
     }
 
@@ -193,8 +204,12 @@ struct DumpDBA : public Callback
         if (values.is_set("height") && (uint64_t)values.get("height") != 0)
             this->heightMax = values.get("height");
 
+        if (values.is_set("nbtransactionmax") && (uint64_t)values.get("nbtransactionmax") != 0)
+            this->nbTransactionMax = values.get("nbtransactionmax");
+
         cout << "dumbDBA: output: " << this->outputFilename << endl;
         cout << "dumbDBA: height limit: " << this->heightMax << endl;
+        cout << "dumbDBA: nb transaction limit: " << this->nbTransactionMax << endl;
 
         this->fileOutput.open(this->outputFilename);
 
@@ -206,10 +221,9 @@ struct DumpDBA : public Callback
         this->currBlock = b->height;
     }
 
-    void startTX(const uint8_t *p, const uint8_t *hash) override
+    /*void startTX(const uint8_t *p, const uint8_t *hash) override
     {
-        this->nbTransactionProcessed += 1;
-    }
+    }*/
 
     void startInput(const uint8_t *p) override
     {
@@ -295,6 +309,10 @@ struct DumpDBA : public Callback
                     // The transaction doesn't exist -> we write it to the output.
                     if (currentDestinations->find(*output) == currentDestinations->end())
                     {
+                        this->nbTransactionProcessed += 1;
+                        if (this->nbTransactionProcessed > this->nbTransactionMax)
+                            this->stop();
+
                         currentDestinations->insert(*output);
                         input->writeAsBinaryTo(this->fileOutput);
                         output->writeAsBinaryTo(this->fileOutput);
@@ -313,10 +331,13 @@ struct DumpDBA : public Callback
             cout << "Current height: " << this->currBlock << ", nb transaction: " << this->nbTransactionProcessed << " ..." << endl;
 
         if (this->currBlock >= this->heightMax)
-        {
-            this->wrapup();
-            exit(0);
-        }
+            this->stop();
+    }
+
+    void stop()
+    {
+        this->wrapup();
+        exit(0);
     }
 
     void wrapup() override
