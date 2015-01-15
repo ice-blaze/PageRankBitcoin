@@ -22,6 +22,13 @@ public class BitcoinAddress implements WritableComparable<BitcoinAddress> {
 		address = tab;
 	}
 	
+	public void set(byte[] tab){
+		if(tab.length!=SIZE){
+			System.out.println("Error Addres isn't 20 bytes longs");
+		}
+		address = tab;
+	}
+	
 	public BitcoinAddress(){
 	}
 	

@@ -12,7 +12,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.apache.hadoop.mapreduce.Job;
@@ -20,7 +19,6 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
@@ -294,7 +292,10 @@ public class Bitcoin extends Configured implements Tool {
 
 	public int run(String[] args) throws Exception {
 		Configuration conf = this.getConf();
-		conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
+//		conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
+//		conf.setLong("mapred.min.split.size",40);
+//		conf.setLong("mapred.max.split.size",8000);
+
 //		FileSystem.get(conf).delete(new Path(outputString), true);//distributed only
 		
 		Path in;
@@ -305,9 +306,15 @@ public class Bitcoin extends Configured implements Tool {
 		
 		Job jobDATA = new Job(conf, "Graph");
 		
+		PRInputFormat.setMinInputSplitSize(jobDATA, 40L);
+//		PRInputFormat.setMaxInputSplitSize(jobDATA, 80L);
+//		PRInputFormat.setMaxInputSplitSize(jobDATA, 8000L);
+		
 		out = new Path(outputString + "regroup");
 		doJob(jobDATA, IIMapperREGROUP.class, IIReducerREGROUP.class, BitcoinAddress.class, BitcoinAddress.class, BitcoinAddress.class,
 				NodeBitcoin.class, inputPath, out, 1, Bitcoin.class,PRInputFormat.class, SequenceFileOutputFormat.class, true);
+//		System.out.println(Debug.result());
+//		System.exit(0);
 		
 		long nbNodes = jobDATA.getCounters().findCounter(UpdateCounter.MAXLINE).getValue();
 		conf.setLong(MAX_LINE, nbNodes);
@@ -374,7 +381,8 @@ public class Bitcoin extends Configured implements Tool {
 		job.setOutputKeyClass(outKey);
 		job.setOutputValueClass(outVal);
 		
-		TextInputFormat.addInputPath(job, input);
+		
+		PRInputFormat.addInputPath(job, input);
 		job.setInputFormatClass(inputFormat);
 
 		FileOutputFormat.setOutputPath(job, output);
