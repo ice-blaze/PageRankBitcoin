@@ -1,0 +1,2 @@
+Paramètres utilisés pour lancer le jar sous Amazon :
+heigvd.bda.labs.graph.Bitcoin 1 s3://mse-bda-gburri/blockchain/blockchain_transactions_151000.bin s3://mse-bda-gburri/blockchain/output 1

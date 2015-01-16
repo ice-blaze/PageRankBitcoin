@@ -28,7 +28,11 @@ import org.apache.hadoop.util.ToolRunner;
 public class Bitcoin extends Configured implements Tool {
 
 	public enum UpdateCounter {
-		UPDATED, DANGLING, MAXLINE, LOSS, COUNT
+		UPDATED, // Number of node updated. 
+		DANGLING,
+		MAXLINE,
+		LOSS,
+		COUNT
 	}
 
 	private int numReducers;
@@ -253,8 +257,7 @@ public class Bitcoin extends Configured implements Tool {
 		}
 
 		@Override
-		protected void reduce(BitcoinAddress key, Iterable<NodeBitcoin> values, Context context) throws IOException,
-				InterruptedException {
+		protected void reduce(BitcoinAddress key, Iterable<NodeBitcoin> values, Context context) throws IOException, InterruptedException {
 			for (NodeBitcoin v : values) { // only done one time
 				if (Math.abs(v.getMass() - v.getOldMass()) < EPSILON_CRITERION) {
 					context.getCounter(UpdateCounter.UPDATED).increment(1);
@@ -292,6 +295,7 @@ public class Bitcoin extends Configured implements Tool {
 
 	public int run(String[] args) throws Exception {
 		Configuration conf = this.getConf();
+		
 //		conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
 //		conf.setLong("mapred.min.split.size",40);
 //		conf.setLong("mapred.max.split.size",8000);
@@ -356,9 +360,9 @@ public class Bitcoin extends Configured implements Tool {
 			depth++;
 			counterOfUnchangedNodes = job2.getCounters().findCounter(UpdateCounter.UPDATED).getValue();
 			
-			iterationLimite--;
-			// 
-		} while (counterOfUnchangedNodes < nbNodes  && iterationLimite > 0);
+			this.iterationLimite -= 1;
+			
+		} while (counterOfUnchangedNodes < nbNodes && this.iterationLimite > 0);
 
 		conf.set("mapred.textoutputformat.separator", "\t\t");
 		Job jobSORT = new Job(conf, "Graph");

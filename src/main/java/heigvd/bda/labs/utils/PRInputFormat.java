@@ -1,13 +1,13 @@
 package heigvd.bda.labs.utils;
 
-import heigvd.bda.labs.graph.Debug;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.sound.midi.SysexMessage;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -27,53 +27,58 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 
 	static class PRRecordReader extends RecordReader<BitcoinAddress, BitcoinAddress> {
 
-		ArrayList<FSDataInputStream> readers = new ArrayList<FSDataInputStream>();
+		FSDataInputStream reader;
 		BitcoinAddress currentKey = new BitcoinAddress();
 		BitcoinAddress currentValue = new BitcoinAddress();
+		
+		long byteRead = 0;
+		long start = 0;
+		long end = 0;
 
-		long fileSize = 0;
-		long byteRead = 0; // This is an approximation.
-
-//		int N = 0; // Number of nodes.
+	   static final Log LOG = LogFactory.getLog(PRRecordReader.class);	 
 		
 		@Override
 		public void initialize(InputSplit genericSplit, TaskAttemptContext context) throws IOException, InterruptedException {
-			
 			FileSplit split = (FileSplit) genericSplit;
 			Configuration job = context.getConfiguration();
 			final Path file = split.getPath();
-	        FileSystem fs = file.getFileSystem(job);
-	        FSDataInputStream fileIn = fs.open(split.getPath());
-	        this.fileSize += split.getLength();
-			this.readers.add(fileIn);
+         FileSystem fs = file.getFileSystem(job);
+         this.reader = fs.open(split.getPath());
+         
+         this.start = split.getStart();
+         long rem = this.start % 40L;
+         if (rem != 0)
+            this.start -= rem;         
+         
+         long size = split.getLength();
+         rem = size % 40L;
+         if (rem != 0)
+            size -= rem;         
+         
+         this.end = this.start + size;
+         this.reader.seek(this.start);
+         
+         LOG.info(String.format("PRRecordReader.initialize(), start: %d", this.start));
+         LOG.info(String.format("PRRecordReader.initialize(), end: %d", this.end));
 		}
 
 		@Override
 		public boolean nextKeyValue() throws IOException, InterruptedException {
-			for (;;) {
-				if (this.readers.isEmpty())
-					return false;
-				
-				System.out.print("available : ");
-				System.out.println(readers.get(0).available());
-				
-				byte[] key = new byte[BitcoinAddress.SIZE];
-				byte[] value = new byte[BitcoinAddress.SIZE];
-				boolean eof = this.readers.get(0).read(key) < BitcoinAddress.SIZE
-						|| this.readers.get(0).read(value) < BitcoinAddress.SIZE;
-				if (eof) {
-					this.readers.get(0).close();
-					this.currentKey = null;
-					this.currentValue = null;
-					this.readers.remove(0);
-				} else {
-					this.byteRead += 2 * BitcoinAddress.SIZE;
-
-					this.currentKey.set(key);
-					this.currentValue.set(value);
-//					N++;
-					return true;
-				}
+		   if (this.start + this.byteRead >= this.end)
+		      return false;
+			
+			byte[] key = new byte[BitcoinAddress.SIZE];
+			byte[] value = new byte[BitcoinAddress.SIZE];
+			boolean eof = this.reader.read(key) < BitcoinAddress.SIZE || this.reader.read(value) < BitcoinAddress.SIZE;
+			if (eof) {
+				this.currentKey = null;
+				this.currentValue = null;
+				return false;
+			} else {
+				this.byteRead += 2 * BitcoinAddress.SIZE;
+				this.currentKey.set(key);
+				this.currentValue.set(value);
+				return true;
 			}
 		}
 
@@ -89,43 +94,23 @@ public class PRInputFormat extends FileInputFormat<BitcoinAddress, BitcoinAddres
 
 		@Override
 		public float getProgress() throws IOException, InterruptedException {
-			if (this.byteRead >= this.fileSize)
+			if (this.start + this.byteRead >= this.end)
 				return 1.0f;
-			return (float) this.byteRead / (float) this.fileSize;
+			return (float)this.byteRead / (float)(this.end - this.start);
 		}
 
 		@Override
 		public void close() throws IOException {
-			for (FSDataInputStream reader : this.readers)
-				reader.close();
+			
+		   this.reader.close();
+			
 			this.currentKey = null;
 			this.currentValue = null;
-			
-//			Debug.print("transaction number : ");
-//			Debug.print(N);
-//			System.out.print("transaction number : ");
-//			System.out.println(N);
-//			System.exit(0);
 		}
 	}
 
-	/**
-	 * In our case there is only one split.
-	 */
-//	@Override
-//	protected boolean isSplitable(JobContext context, Path filename) {
-//		return false;
-//	}
-	
-//	@Override
-//	 protected long getFormatMinSplitSize() {
-//	    return 40;
-//	  }
-	
-
 	@Override
-	public RecordReader<BitcoinAddress, BitcoinAddress> createRecordReader(InputSplit split, TaskAttemptContext context)
-			throws IOException, InterruptedException {
+	public RecordReader<BitcoinAddress, BitcoinAddress> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException {
 //		List<InputSplit> splits = super.getSplits(context);
 		return new PRRecordReader();
 	}
